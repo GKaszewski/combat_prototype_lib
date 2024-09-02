@@ -33,6 +33,7 @@ pub struct Battle {
     pub turns: Vec<Turn>,
     pub current_turn: usize,
     pub winner: Option<String>,
+    pub state: BattleState,
 }
 
 /// Action enum - represents an action that a unit can perform
@@ -61,6 +62,20 @@ pub struct Player {
     pub units: Vec<Unit>,
 }
 
+/// Battle state enum - represents the state of a battle
+/// - Started - the battle has started
+/// - StartedTurn - the turn has started with the given current turn number
+/// - TurnInProgress - the turn is in progress
+/// - TurnFinished - the turn has finished
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum BattleState {
+    Started,
+    StartedTurn(u32),
+    TurnInProgress,
+    TurnFinished,
+    Finished,
+}
+
 impl Battle {
     pub fn new(grid: Box<dyn Grid<Option<Unit>>>, players: Vec<Player>) -> Self {
         Battle {
@@ -69,6 +84,7 @@ impl Battle {
             turns: Vec::new(),
             current_turn: 0,
             winner: None,
+            state: BattleState::Started,
         }
     }
 
@@ -92,5 +108,71 @@ impl Battle {
             units,
             usable_units,
         });
+
+        self.current_turn = 0;
+        self.state = BattleState::StartedTurn(0);
+    }
+}
+
+/// Calculates the damage done by an attacker to a defender
+/// Returns the damage done
+fn calculate_damage(attacker: &Unit, defender: &Unit) -> i32 {
+    let attack = attacker.attack;
+    let defense = defender.defense;
+
+    let base_damage = attack;
+    let damage_modifier = 1.0 + 0.05 * (attack as f32 - defense as f32);
+
+    let total_damage =
+        (base_damage as f32 * attacker.count as f32 * damage_modifier).round() as i32;
+
+    total_damage
+}
+
+/// Applies damage to a unit
+/// Returns the number of casualties
+fn apply_damage(unit: &mut Unit, damage: i32) -> i32 {
+    let mut remainig_damage = damage;
+    let mut casualties = 0;
+    let base_health = unit.health;
+
+    while remainig_damage > 0 && unit.count > 0 {
+        if unit.health > remainig_damage {
+            unit.health -= remainig_damage;
+            remainig_damage = 0;
+        } else {
+            remainig_damage -= unit.health;
+            unit.count -= 1;
+            if unit.count > 0 {
+                unit.health = base_health;
+            }
+            casualties += 1;
+        }
+    }
+
+    casualties
+}
+
+/// Attacks a defender with an attacker
+/// Applies damage to both units
+/// If the attacker is dead, it is removed from the grid
+/// If the defender is dead, it is removed from the grid
+pub fn attack(attacker: &mut Unit, defender: &mut Unit) {
+    let damage = calculate_damage(attacker, defender);
+    let _ = apply_damage(defender, damage);
+
+    if defender.count > 0 {
+        let damage = calculate_damage(defender, attacker);
+        let _ = apply_damage(attacker, damage);
+
+        if attacker.count == 0 {
+            attacker.health = 0;
+            // attacker is dead, remove it from the grid
+            println!("Attacker is dead");
+        }
+    } else {
+        defender.health = 0;
+        // defender is dead, remove it from the grid
+        println!("Defender is dead");
     }
 }
