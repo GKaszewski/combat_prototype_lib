@@ -28,3 +28,4 @@ Warunkiem do wygrania jest pokonanie wszystkich jednostek/doprowadzenie do podda
 ### Notes
 
 - use petgraph instead of my Grid trait
+- use Command pattern for actions
